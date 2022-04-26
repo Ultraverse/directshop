@@ -1,0 +1,80 @@
+version: "3"
+
+services:
+  wordpress:
+    depends_on:
+      - database
+    image: wordpress:latest
+#   build: .
+    volumes:
+      - ./wordpress:/var/www/html
+      - ./plugins:/var/www/html/wp-content/plugins
+    ports:
+      - "8080:80"
+    restart: always
+    links:
+     - database:mysql
+    environment:
+     - WORDPRESS_DB_PASSWORD=qwertyuiop
+     - WORDPRESS_DB_USER=tygant
+     - WORDPRESS_DB_NAME=directshop
+     - VIRTUAL_HOST= dockerdirectshop.australiaeast.cloudapp.azure.com
+     - LETSENCRYPT_HOST= dockerdirectshop.australiaeast.cloudapp.azure.com
+     - LETSENCRYPT_EMAIL=isaac.gomez@utp.ac.pa
+  database:
+    image: mariadb
+    environment:
+     - MYSQL_ROOT_PASSWORD=qwertyuiop
+     - MYSQL_DATABASE=directshop
+     - MYSQL_USER=tygant
+     - MYSQL_PASSWORD=qwertyuiop
+    volumes:
+     - ./database:/var/lib/mysql
+
+#parte nueva
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: wppma 
+    restart: unless-stopped   
+    depends_on:      
+      - database
+    ports:      
+      - "8081:80"        
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: tygant
+      PMA_PASSWORD: qwertyuiop
+    depends_on:
+      - database   
+
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - "81:80"
+      - "403:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - certs:/etc/nginx/certs
+      - vhost.d:/etc/nginx/vhost.d
+      - ./html:/usr/share/nginx/html
+      
+  nginx-proxy-letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    container_name: nginx-proxy-letsencrypt
+    restart: always
+    depends_on:
+      - nginx-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certs:/etc/nginx/certs
+      - vhost.d:/etc/nginx/vhost.d
+      - ./html:/usr/share/nginx/html
+    environment:
+      - DEFAULT_EMAIL=isaac.gomez@utp.ac.pa     #debe ser un email válido
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+
+volumes:
+  certs: {}
+  vhost.d: {}   
